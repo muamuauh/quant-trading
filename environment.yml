@@ -1,0 +1,20 @@
+name: qtf
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - numpy
+  - pandas
+  - cython
+  - scikit-learn
+  - lightgbm
+  - pyyaml
+  - pip
+  - pip:
+      - moomoo-api==10.6.6608
+      - "protobuf>=3.20,<4"
+      - pydantic-settings
+      - python-dotenv
+      - pandas_market_calendars
+      - mlflow
+      # qlib installed editable from local clone: pip install -e .\qlib

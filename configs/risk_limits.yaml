@@ -1,0 +1,5 @@
+max_position_pct: 0.40      # any single ticker target weight <= 40%
+min_cash_buffer_pct: 0.05   # post-trade cash >= 5% of equity
+max_daily_loss_pct: 0.02    # block BUYs if today PnL < -2% equity
+require_us_rth: true        # only submit during US regular trading hours
+allow_real_env: false       # extra guard: must be flipped on AND I_CONFIRM_REAL=1 to allow REAL

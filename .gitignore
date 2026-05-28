@@ -1,0 +1,91 @@
+# =====================================================
+# Secrets / local config -- NEVER commit
+# =====================================================
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# =====================================================
+# Vendored external repos -- clone separately, see README
+# (their own .git would cause "embedded repository" warnings
+#  if committed; they're also huge.)
+# =====================================================
+qlib/
+TradingAgents/
+
+# =====================================================
+# Claude Code / IDE local state
+# =====================================================
+.claude/
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# =====================================================
+# Python
+# =====================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+build/
+dist/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# =====================================================
+# Virtual envs / package managers
+# =====================================================
+.venv/
+venv/
+env/
+pip-wheel-metadata/
+
+# =====================================================
+# Project runtime data -- regeneratable + may contain
+# account info, don't push to public repo
+# =====================================================
+data/raw_csv/
+data/qlib_bin/
+data/snapshots/
+mlruns/
+logs/
+reports/
+
+# Bat smoke-test side files
+_bat_smoke.log
+_smoketest.log
+
+# =====================================================
+# Jupyter / notebooks
+# =====================================================
+.ipynb_checkpoints/
+*.ipynb
+
+# =====================================================
+# OS
+# =====================================================
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# =====================================================
+# Build artifacts you might accidentally produce
+# =====================================================
+*.7z
+*.zip
+*.tar.gz
+*.tgz
+moomoo_OpenD*.exe
