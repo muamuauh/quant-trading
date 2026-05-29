@@ -42,6 +42,67 @@ class MoomooExecutor:
         portfolio = self.get_portfolio()
         return float(portfolio.get("funds", {}).get("total_assets", 0.0))
 
+    def snapshot_prices(self, codes: list[str]) -> dict[str, float]:
+        """Live last-price per code via the skill's snapshot (no subscription needed).
+
+        Used to price limit orders off the *current* market instead of a stale
+        daily close — otherwise a stock that gapped/ran intraday gets a limit
+        below market and never fills (see the ORCL +10% day).
+        """
+        if not codes:
+            return {}
+        try:
+            payload = run_skill("quote", "get_snapshot", *codes)
+        except MoomooSkillError as e:
+            log_event(log, "execute.snapshot.error", error=str(e), codes=codes)
+            return {}
+        out: dict[str, float] = {}
+        for row in payload.get("data", []):
+            code = row.get("code")
+            px = float(row.get("last_price", 0) or 0)
+            if code and px > 0:
+                out[code] = px
+        return out
+
+    def cancel_open_orders(self) -> list[str]:
+        """Cancel all non-terminal (open) orders on this account. Returns cancelled ids.
+
+        Prevents stale unfilled limit orders (status SUBMITTED / WAITING_SUBMIT /
+        SUBMITTING) from accumulating across daily runs, which would otherwise
+        risk double-fills the next time the planner sees qty=0 and re-buys.
+        """
+        terminal = {"FILLED_ALL", "CANCELLED_ALL", "FAILED", "DELETED",
+                    "CANCELLED_PART", "FILLED_PART"}
+        try:
+            payload = run_skill(
+                "trade", "get_orders",
+                "--acc-id", str(self.acc_id),
+                "--trd-env", self.trd_env,
+            )
+        except MoomooSkillError as e:
+            log_event(log, "execute.get_orders.error", error=str(e))
+            return []
+
+        cancelled: list[str] = []
+        for o in payload.get("orders", []):
+            status = str(o.get("status", "")).upper()
+            oid = o.get("order_id")
+            if not oid or status in terminal:
+                continue
+            try:
+                run_skill(
+                    "trade", "cancel_order",
+                    "--order-id", str(oid),
+                    "--acc-id", str(self.acc_id),
+                    "--trd-env", self.trd_env,
+                )
+                cancelled.append(str(oid))
+                log_event(log, "execute.cancelled", order_id=oid,
+                          code=o.get("code"), status=status)
+            except MoomooSkillError as e:
+                log_event(log, "execute.cancel.error", order_id=oid, error=str(e))
+        return cancelled
+
     def submit(self, orders: list[Order], dry_run: bool = False) -> list[dict[str, Any]]:
         results: list[dict[str, Any]] = []
         for order in orders:

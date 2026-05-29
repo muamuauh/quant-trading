@@ -71,7 +71,7 @@ src/qtf/
 | model | `train.py` | qlib YAML | mlflow run + `pred.pkl` |
 | strategy | `predict.py` / `topk_weights.py` | mlflow predictions | `{code: weight}` dict |
 | agents | `review.py` | top-K weights + date | filtered weights + verdicts |
-| execution | `order_planner.py` / `moomoo_executor.py` | weights + current portfolio | Order list / submit results |
+| execution | `order_planner.py` / `moomoo_executor.py` | weights + current portfolio + live snapshot prices | Order list / submit results |
 | risk | `gates.py` / `market_hours.py` | orders + portfolio | (passed, [GateResult]) |
 | report | `snapshot.py` / `metrics.py` / `daily_report.py` | cycle_result + history | `reports/YYYY-MM-DD.md` |
 

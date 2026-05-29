@@ -101,6 +101,14 @@ def run_daily(*, skip_ingest: bool = False, retrain: bool = False, dry_run: bool
 
     log_event(log, "cycle.executor.init")
     executor = MoomooExecutor()
+
+    # Cancel any stale open orders before planning new ones, so unfilled limit
+    # orders from a previous run don't accumulate or double-fill.
+    if not dry_run:
+        cancelled = executor.cancel_open_orders()
+        if cancelled:
+            log_event(log, "cycle.cancelled_stale", order_ids=cancelled)
+
     portfolio = executor.get_portfolio()
     funds = portfolio.get("funds", {})
     positions = portfolio.get("positions", [])
@@ -109,11 +117,19 @@ def run_daily(*, skip_ingest: bool = False, retrain: bool = False, dry_run: bool
     current_qty = {p["code"]: float(p["qty"]) for p in positions}
     today_pnl = sum(float(p.get("today_pl_val", 0.0)) for p in positions)
 
-    last_close = last_close_from_csv()
+    # Price limit orders off the *live* market, not the stale daily close,
+    # so stocks that gapped/ran intraday still fill. Fall back to CSV close
+    # for any code the snapshot didn't return.
+    price_codes = sorted(set(weights) | set(current_qty))
+    live_prices = executor.snapshot_prices(price_codes)
+    ref_prices = last_close_from_csv()
+    ref_prices.update(live_prices)  # live overrides stale close
+    log_event(log, "cycle.prices", live=len(live_prices), fallback_csv=len(ref_prices) - len(live_prices))
+
     orders = plan_orders(
         target_weights=weights,
         current_qty=current_qty,
-        last_close=last_close,
+        last_close=ref_prices,
         total_equity=total_equity,
     )
     log_event(log, "cycle.orders", orders=[o.as_dict() for o in orders])

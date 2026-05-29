@@ -105,6 +105,14 @@ remove_schedule.bat
 | `Master account 不允许下单` | acc_id 选了汇总账户 | `.env` 改成 SIMULATE 子账户的 acc_id |
 | `下单数量超过最大可用` | 现金不足 | 检查 `total_assets` / `cash` 数字 |
 
+### 订单 submitted 但不成交（限价够不着）
+
+如果 `cycle.done` 显示某单 `status: submitted` 但持仓里一直没有它，多半是**限价挂得太低/太高，市场价够不着**——常见于当天大涨/大跌或跳空的票。
+
+**已修复**：下单前先查实时 snapshot 价，限价 = 当前价 × 1.002（买）/ × 0.998（卖），而非陈旧的昨收价。这样跳空股也能贴着现价成交。日志事件 `cycle.prices` 显示用了多少实时价、多少回退到 CSV。
+
+**配套修复**：每次 cycle 下单前会先 `cancel_open_orders()` 撤掉所有未成交挂单（事件 `cycle.cancelled_stale`），避免僵尸单堆积和重复买入。dry-run 模式不撤单。
+
 ### 风控全部通过但 `submitted: false`
 
 看 cycle.aborted 事件的 `reason`。常见：
