@@ -54,9 +54,14 @@ src/qtf/
 ├── agents/        TradingAgents LLM 复核（可选）
 ├── execution/     订单规划 + moomoo executor
 ├── risk/          5 道风控闸
+├── backtest/      历史回测引擎 + 指标（夏普/回撤/IC）
 ├── report/        快照 + 指标 + Markdown 渲染
 └── orchestrator/  daily_cycle 串联所有层
 ```
+
+> 注：`backtest/` 是**离线评估工具**，不在每日 pipeline 里（每日跑的是实盘流程）。
+> 它独立运行 `scripts/06_backtest.py`，用历史预测评估策略选股质量，
+> 替代了 qlib 自带的 PortAnaRecord（后者在美股配置下不可用且会触发 joblib teardown 崩溃）。
 
 每层职责严格隔离，便于单测和替换：
 

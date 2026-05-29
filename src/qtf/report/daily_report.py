@@ -124,6 +124,20 @@ def _activity_section(cycle_result: dict[str, Any] | None) -> str:
         lines.append("")
         lines.append("- 本次为 dry-run 或被风控拦截，未实际提交订单。")
 
+    # Estimated moomoo fees on planned orders (paper account doesn't return real fees).
+    if orders:
+        from qtf.execution.fees import estimate_us_fee
+        total_fee = 0.0
+        total_amt = 0.0
+        for o in orders:
+            fb = estimate_us_fee(o["side"], o["quantity"], o["price"])
+            total_fee += fb.total
+            total_amt += fb.trade_amount
+        bps = (total_fee / total_amt * 1e4) if total_amt > 0 else 0.0
+        lines.append("")
+        lines.append(f"- 预估手续费（moomoo 美股费率）：**${total_fee:.2f}** "
+                     f"（成交额 ${total_amt:,.0f}，约 {bps:.2f} bps）")
+
     lines.append("")
     return "\n".join(lines)
 

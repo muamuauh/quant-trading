@@ -176,3 +176,31 @@ handler:
 ```
 
 但记得同时换模型为序列模型（如 qlib 的 `GRU` 或 `LSTM`），否则效果会变差。
+
+## 回测评估
+
+调参后**务必跑回测**对比指标变化，否则是盲调：
+
+```powershell
+python scripts\06_backtest.py            # top-K=5，默认 5bp 换手成本
+python scripts\06_backtest.py --k 3      # 改持仓数
+python scripts\06_backtest.py --cost 0.001  # 改成本假设
+```
+
+输出 `reports/backtest_<date>.md`，关键指标：
+
+| 指标 | 含义 | 参考线 |
+|------|------|--------|
+| 年化收益 | 复利年化 | 跟基准（等权持有全池）比超额 |
+| 夏普比率 | 收益/波动 | >1 不错，>2 优秀 |
+| 最大回撤 | 最惨从高点跌幅 | 越小越好 |
+| **Rank IC** | 预测与次日真实涨跌的横截面秩相关 | **≥0.03 有信号，≥0.05 较强** |
+
+**Rank IC 是判断模型选股能力的核心指标**，比收益曲线更稳健（收益受单一区间运气影响大，IC 反映的是预测本身的质量）。
+
+回测实现见 [`src/qtf/backtest/`](../src/qtf/backtest/)：
+- `engine.py` — 价格加载 + top-K 每日调仓模拟
+- `metrics.py` — 夏普/回撤/IC（纯函数，单测覆盖）
+- `report.py` — 中文 Markdown 渲染
+
+**重要 caveat**：回测用收盘价理想化撮合，**无滑点/无部分成交**，真实表现（含 moomoo 模拟盘）通常更差。回测是**相对评估工具**（A 改动 vs B 改动哪个好），不是收益承诺。

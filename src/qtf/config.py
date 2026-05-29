@@ -44,6 +44,14 @@ class Settings(BaseSettings):
     report_dir: Path = PROJECT_ROOT / "reports"
     equity_history_csv: Path = PROJECT_ROOT / "data" / "snapshots" / "equity_history.csv"
 
+    # --- Data ingest ---
+    # Concurrent K-line fetch workers. moomoo's historical-kline limit is
+    # 60 requests / 30s; each ticker is ~2-3 paginated requests spread over
+    # ~75s, so 4-6 workers stays far under the cap while cutting a 50-ticker
+    # pull from ~60 min to ~10 min. Going much higher risks OpenD's concurrent
+    # connection limit. Override via INGEST_MAX_WORKERS in .env.
+    ingest_max_workers: int = 4
+
 
 settings = Settings()
 

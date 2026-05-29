@@ -81,7 +81,16 @@ remove_schedule.bat
 
 ### Step 2 拉数据慢/失败
 
-50 只票 × 5 年 ≈ 25 分钟。如果某只票卡住，看 `logs/02_ingest_stderr.log` 的最后一行。
+50 只票并行拉取（默认 4 worker）约 10-15 分钟。串行（`INGEST_MAX_WORKERS=1`）约 60 分钟。如果某只票卡住，看 `logs/02_ingest_stderr.log` 的最后一行。
+
+**并行度调整**：`.env` 里 `INGEST_MAX_WORKERS`：
+- 默认 4，平衡速度与稳定性
+- 调到 6-8 更快，但可能撞 OpenD 并发连接上限
+- 调到 1 退回串行（最稳，最慢）
+
+**瞬时断连自动重试**：单只票拉取失败（如 `NN_ProtoRet_ByDisConnOrCancel`）会自动重试 3 次（间隔 5/10/15 秒）。重试日志为 `kline.fetch.retry`。
+
+**单只票彻底失败不影响全局**：某只票重试 3 次仍失败会被跳过（`ingest.skip` 事件），用剩下的票继续训练 + 下单，只有全部失败才 abort。
 
 **配额超限**：moomoo 历史 K 线每只票 30 天窗口算 1 quota，一次拉 5 年触发 1 quota；重复拉同票同窗口免费。50 quota 不会超限，但**不要短时间内重启多次**。
 
@@ -129,6 +138,44 @@ moomoo 的 `position_list_query` 有几秒到几十秒的传播延迟。orchestr
 - 看 `logs/qtf.jsonl` 的 `agents.review.verdict` 事件时间戳，定位卡哪只票
 - 通常是 LLM 接口超时
 - `FAIL_OPEN=1` 模式下会自动放行那只票
+
+## moomoo 美股手续费
+
+模拟盘**不返回真实手续费**（`get_order_fee.py` 回 "暂时不支持模拟交易"），所以费用按 moomoo Financial Inc. 公布的美股费率建模，代码在 [`src/qtf/execution/fees.py`](../src/qtf/execution/fees.py)。
+
+### 费率结构（2024-2025 标准档）
+
+| 项目 | 费率 | 说明 |
+|------|------|------|
+| 佣金 Commission | $0.0049/股，最低 $0.99/单，最高成交额的 0.5% | 买卖都收 |
+| 平台费 Platform | $0.005/股，最低 $1.00/单 | 买卖都收 |
+| SEC 规费 | 成交额 × $0.0000278 | **仅卖出** |
+| FINRA TAF | $0.000166/股，最高 $8.30 | **仅卖出** |
+
+费率会变，moomoo 调整时改 `fees.py` 顶部的常量即可。
+
+### 大盘股实际成本极低
+
+对大盘股，手续费只有 **~0.4 bps 单边**（成交额的 0.004%）：
+
+```
+~$280k 买单: 0.25 bps
+~$280k 卖单: 0.53 bps（含 SEC+FINRA）
+往返合计:    0.78 bps
+```
+
+**真正的成本是滑点**：我们实测限价 $311.91 成交在 $312.62 ≈ **23 bps**。所以回测里的 `cost_per_turnover=5bp` 主要是滑点缓冲，手续费只占零头。
+
+### 算某几笔单的手续费
+
+```python
+from qtf.execution.fees import estimate_us_fee, fee_as_bps
+f = estimate_us_fee("SELL", 723, 413.38)
+print(f.total, f.as_dict())   # 总费用 + 明细
+print(fee_as_bps("SELL", 723, 413.38))  # 折合 bps
+```
+
+每日报告的"当日活动"区块会自动显示当天订单的预估手续费。
 
 ## 日志位置速查
 

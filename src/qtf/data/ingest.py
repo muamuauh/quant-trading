@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -88,14 +89,43 @@ def ingest_all(years: int = 3) -> dict[str, int]:
     csv_dir = settings.raw_csv_dir
     qlib_dir = settings.qlib_provider_uri
 
+    max_workers = max(1, int(settings.ingest_max_workers))
     counts: dict[str, int] = {}
-    for code in universe:
-        df = fetch_daily_kline(code, start, end)
-        path = stage_csv(code, df, csv_dir)
-        counts[code] = len(df)
-        log_event(log, "ingest.fetched", code=code, rows=len(df), csv=str(path))
+    failed: list[str] = []
 
+    def _fetch_one(code: str) -> tuple[str, int | None]:
+        """Fetch + stage one ticker. Returns (code, nrows) or (code, None) on failure."""
+        try:
+            df = fetch_daily_kline(code, start, end)
+        except Exception as e:  # noqa: BLE001 — one bad ticker shouldn't kill the run
+            log_event(log, "ingest.skip", code=code, error=str(e))
+            return code, None
+        path = stage_csv(code, df, csv_dir)
+        log_event(log, "ingest.fetched", code=code, rows=len(df), csv=str(path))
+        return code, len(df)
+
+    if max_workers == 1:
+        results = [_fetch_one(code) for code in universe]
+    else:
+        log_event(log, "ingest.parallel.start", workers=max_workers, n=len(universe))
+        with ThreadPoolExecutor(max_workers=max_workers) as pool:
+            results = list(pool.map(_fetch_one, universe))
+
+    for code, n in results:
+        if n is None:
+            failed.append(code)
+        else:
+            counts[code] = n
+
+    if not counts:
+        raise RuntimeError("ingest produced zero tickers — aborting (check OpenD).")
+
+    # Only write instruments for tickers we actually have data for, so qlib
+    # doesn't choke on a ticker with no .bin files.
+    ingested = [c for c in universe if c not in failed]
     dump_qlib_bin(csv_dir, qlib_dir)
-    write_instruments(universe, qlib_dir, start, end)
-    log_event(log, "ingest.done", counts=counts, qlib_dir=str(qlib_dir))
+    write_instruments(ingested, qlib_dir, start, end)
+    log_event(log, "ingest.done", counts=counts,
+              n_ok=len(counts), n_failed=len(failed), failed=failed,
+              qlib_dir=str(qlib_dir))
     return counts
