@@ -65,6 +65,9 @@ pip install -e .\TradingAgents
 pip install "moomoo-api==10.6.6608" "protobuf>=3.20,<4" pydantic-settings python-dotenv pandas_market_calendars mlflow
 pip install -e .
 
+# 4.5 修补 TradingAgents 的 yfinance 兼容问题（否则 LLM 技术分析失效）
+python scripts\patch_tradingagents.py
+
 # 5. 配置
 copy .env.example .env
 python C:\Users\<you>\.claude\skills\moomooapi\scripts\trade\get_accounts.py --json

@@ -148,6 +148,32 @@ TRADINGAGENTS_LLM_BACKEND_URL=http://localhost:11434
 3. **调高 k 时把 min_rating 也调高**：top-10 但只要 Buy 级别，多调用但严格筛选
 4. **缓存命中**：TradingAgents 自带 `~/.tradingagents/cache/` —— 同一只票同一天不重复跑，所以**不要在同一天反复 trigger**（每天一次即可）
 
+## 已知问题：yfinance 列名兼容（必修）
+
+TradingAgents 用 yfinance 拉行情、stockstats 算技术指标。新版 yfinance 的
+`reset_index()` 把日期列命名为 `index`（旧版叫 `Date`），而 TradingAgents 写死取
+`data["Date"]`，导致**技术分析师所有指标计算失败**（`KeyError: 'Date'`，每天约
+1900 条 error 刷屏 `logs/04_execute_stderr.log`）。
+
+**症状**：日志大量 `Error getting stockstats indicator data for indicator
+... : 'Date'`。agents 仍能出评级（靠基本面/新闻/情绪），但技术面维度失效。
+
+**修复**：装好 TradingAgents 后跑一次：
+
+```powershell
+python scripts\patch_tradingagents.py
+```
+
+它幂等修补 `TradingAgents/.../stockstats_utils.py` 的日期列归一化逻辑。因为
+`TradingAgents/` 是 vendored（gitignore），**每次重新 clone 后都要重跑这个补丁**。
+
+验证修好了：
+
+```powershell
+python -c "from tradingagents.dataflows.stockstats_utils import StockstatsUtils; print(StockstatsUtils.get_stock_stats('CRM','rsi','2026-05-29'))"
+# 应打印一个数字（如 60.5），而不是报 KeyError
+```
+
 ## 何时关掉 agents
 
 - 想要纯量化基线（看 qlib 单独表现）
