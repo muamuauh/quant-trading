@@ -130,6 +130,7 @@ remove_schedule.bat  撤销
 | [docs/strategy-and-model.md](docs/strategy-and-model.md) | qlib + Alpha158 + LightGBM 因子设计与训练 |
 | [docs/llm-review.md](docs/llm-review.md) | TradingAgents 集成 + provider 切换 + 成本估算 |
 | [docs/operations.md](docs/operations.md) | 日常运行 / 计划任务 / 故障排查 / 已知坑 |
+| [docs/roadmap.md](docs/roadmap.md) | 优化路线图 / 待办（按投入产出比分档）|
 
 ---
 
