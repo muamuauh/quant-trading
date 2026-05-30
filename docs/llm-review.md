@@ -174,6 +174,27 @@ python -c "from tradingagents.dataflows.stockstats_utils import StockstatsUtils;
 # 应打印一个数字（如 60.5），而不是报 KeyError
 ```
 
+## 已知问题：Reddit 403（已处理）
+
+情绪分析师有 3 个源：**新闻 + StockTwits + Reddit**。Reddit 自 2023 API 改版后封了非
+OAuth 的公开 JSON 访问，返回 `HTTP 403: Blocked`，每天刷屏几十条
+`Reddit fetch failed for r/... : HTTP Error 403`。
+
+`scripts/patch_tradingagents.py` 的第二个补丁已处理：
+
+- **没配 Reddit 凭据时**：静默跳过（debug 级日志，不再刷屏），情绪分析靠新闻 + StockTwits
+- **配了凭据时**：走 OAuth 正常抓取
+
+想启用 Reddit 源：去 https://www.reddit.com/prefs/apps 注册一个免费 "script" app，
+把 id/secret 填进 `.env`：
+
+```dotenv
+REDDIT_CLIENT_ID=xxxxx
+REDDIT_CLIENT_SECRET=xxxxx
+```
+
+不填也完全能跑，只是少一个情绪数据源。
+
 ## 何时关掉 agents
 
 - 想要纯量化基线（看 qlib 单独表现）
